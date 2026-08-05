@@ -957,6 +957,8 @@ function showSettings() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             <span style="flex:1;font-size:16px;font-weight:700;color:${genreColor(g)}">${esc(g)}</span>
             <button class="header-btn" style="background:#f0f0f0;color:#333;padding:6px 10px"
+                onclick="renameGenre(${i})">✏️</button>
+            <button class="header-btn" style="background:#f0f0f0;color:#333;padding:6px 10px"
                 onclick="moveGenreUp(${i})">↑</button>
             <button class="header-btn" style="background:#f0f0f0;color:#333;padding:6px 10px"
                 onclick="moveGenreDown(${i})">↓</button>
@@ -1029,6 +1031,20 @@ function moveGenreDown(index) {
     save();
     showSettings();
     renderTabs();
+}
+
+function renameGenre(index) {
+    if (index < 0 || index >= S.genres.length) return;
+    const oldName = S.genres[index];
+    const newName = prompt('ジャンルの新しいなまえを入力してください', oldName)?.trim();
+    if (!newName || newName === oldName) return;
+    if (S.genres.includes(newName)) { toast('そのなまえは すでに つかわれています'); return; }
+    S.genres[index] = newName;
+    S.cards = S.cards.map(c => c.genre === oldName ? { ...c, genre: newName } : c);
+    if (tab === 'g:' + oldName) tab = 'g:' + newName;
+    save();
+    showSettings();
+    render();
 }
 
 function doConnect() {
