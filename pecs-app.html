@@ -56,7 +56,7 @@
         .strip-card .ic { font-size: 28px; line-height:1; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; overflow:hidden; }
         .strip-card .tt { font-size: 10px; font-weight: 700; color: #555; margin-top:2px; white-space:nowrap; }
         .strip-x {
-            position: absolute; top: -7px; right: -7px; width: 19px; height: 19px;
+            position: absolute; top: 6px; right: 6px; width: 19px; height: 19px;
             border-radius: 50%; background: #c62828; color: white; font-size: 11px;
             border: none; display: flex; align-items: center; justify-content: center;
             cursor: pointer;
@@ -175,11 +175,12 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
+            margin-top: 8px;
+            padding: 6px;
             max-height: 320px;
             overflow-y: auto;
             overflow-x: hidden;
-            margin-top: 8px;
-            padding: 6px;
+            -webkit-overflow-scrolling: touch;
             width: 100%;
             box-sizing: border-box;
             align-content: flex-start;
@@ -669,7 +670,7 @@ function symbolResultsHtml() {
     else if (currentGenre) pool = pool.filter(s => s.genre === currentGenre);
     if (q) pool = pool.filter(s => s.label.indexOf(q) > -1);
     if (!pool.length) return `<div class="symbol-hint">みつかりませんでした</div>`;
-    pool = pool.slice(0, 120);
+    // show all matching symbols (no artificial limit)
     return pool.map(s => {
         const sel = cs.icon.type==='symbol' && cs.icon.value===s.file;
         return `<button class="symbol-opt ${sel?'sel':''}" title="${esc(s.label)}" onclick="pickSymbol('${safeAttr(s.file)}')">
