@@ -256,6 +256,16 @@
             display: flex; align-items: center; justify-content: center; border: none;
             cursor: pointer;
         }
+        .pecs-edit {
+            position: absolute; top: 2px; left: 2px; width: 24px; height: 24px;
+            border-radius: 50%; background: #e8ecff; color: #3949ab; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; border: none;
+            cursor: pointer;
+        }
+        .edit-banner {
+            background: #e8ecff; color: #3949ab; border-radius: 12px; padding: 10px 14px;
+            font-size: 15px; font-weight: 800; margin-bottom: 12px; text-align: center;
+        }
 
         /* ===== MODAL ===== */
         .modal-overlay {
@@ -489,6 +499,7 @@ let tab = 'g:' + S.genres[0];
 
 function switchTab(t) {
     if (t === 'add-genre') { showAddGenre(); return; }
+    if (cs.editId !== null) cs = blankCs(cs.genre); // leaving edit mode
     tab = t;
     renderTabs();
     renderContent();
@@ -560,12 +571,16 @@ function renderTabs() {
 // =============================
 // CONTENT
 // =============================
-let cs = {
-    icon: { type:'symbol', value: getDefaultSymbol() },
-    title: '', genre: '',
-    iconTab: 'symbol',
-    symbolQuery: '', symbolGenre: '', symbolSubgenre: '',
-}; // create state
+function blankCs(genre) {
+    return {
+        icon: { type:'symbol', value: getDefaultSymbol() },
+        title: '', genre: genre || '',
+        iconTab: 'symbol',
+        symbolQuery: '', symbolGenre: '', symbolSubgenre: '',
+        editId: null,
+    };
+}
+let cs = blankCs(); // create / edit state
 
 function renderContent() {
     const el = document.getElementById('content');
@@ -588,6 +603,7 @@ function renderGenre(genre) {
 
     return `<div class="pecs-grid">${items.map(c => `
         <div class="pecs-card" onclick="addToStrip(${c.id})">
+            <button class="pecs-edit" onclick="event.stopPropagation(); editCard(${c.id})">✏️</button>
             <button class="pecs-del" onclick="event.stopPropagation(); delCard(${c.id})">🗑</button>
             <div class="ic">${renderIcon(c.icon)}</div>
             <div class="tt">${esc(c.title)}</div>
@@ -615,7 +631,22 @@ function renderCreate() {
             onclick="pickGenre('${safeAttr(g)}')">${esc(g)}</button>`;
     }).join('');
 
+    const editing = cs.editId !== null;
+    const buttons = editing ? `
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+            <button class="btn btn-orange" style="flex:1" onclick="previewAudio()">🔊 きいてみる</button>
+            <button class="btn btn-primary" style="flex:2" onclick="saveCard()">💾 へんこうを ほぞん</button>
+        </div>
+        <button class="btn btn-gray" style="width:100%;margin-bottom:10px;" onclick="cancelEdit()">キャンセル</button>
+    ` : `
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+            <button class="btn btn-orange" style="flex:1" onclick="previewAudio()">🔊 きいてみる</button>
+            <button class="btn btn-primary" style="flex:2" onclick="saveCard()">💾 ほぞん</button>
+        </div>
+    `;
+
     return `
+        ${editing ? '<div class="edit-banner">✏️ えカードを へんしゅうちゅう</div>' : ''}
         <div class="icon-preview" id="ipreview">${renderIcon(cs.icon)}</div>
 
         <div class="card">
@@ -638,10 +669,7 @@ function renderCreate() {
             <div class="genre-row">${genrePills}</div>
         </div>
 
-        <div style="display:flex;gap:10px;margin-bottom:10px;">
-            <button class="btn btn-orange" style="flex:1" onclick="previewAudio()">🔊 きいてみる</button>
-            <button class="btn btn-primary" style="flex:2" onclick="saveCard()">💾 ほぞん</button>
-        </div>
+        ${buttons}
     `;
 }
 
@@ -881,19 +909,52 @@ function saveCard() {
     const titleEl = document.getElementById('titleIn');
     const title = (titleEl ? titleEl.value : cs.title).trim();
     if (!title)    { toast('なまえを いれてください！'); return; }
-    if (!cs.genre) { toast('ジャンルを えらんでください！'); return; }
+    if (!cs.genre || !S.genres.includes(cs.genre)) { cs.genre = ''; renderContent(); toast('ジャンルを えらんでください！'); return; }
+
+    if (cs.editId !== null) {
+        const card = S.cards.find(c => c.id === cs.editId);
+        if (!card) { toast('この えカードは もう ありません'); cancelEdit(); return; }
+        card.icon = cs.icon; card.title = title; card.genre = cs.genre;
+        save();
+        toast('✅ へんこうしました！');
+        const genre = cs.genre;
+        cs = blankCs(genre);
+        tab = 'g:' + genre;
+        render();
+        return;
+    }
 
     S.cards.push({ id: S.nextId++, icon: cs.icon, title, genre: cs.genre });
     save();
     toast('✅ ほぞんしました！');
     speakOne(title);
-    cs = {
-        icon: { type:'symbol', value: getDefaultSymbol() },
-        title: '', genre: cs.genre,
-        iconTab: 'symbol',
-        symbolQuery: '', symbolGenre: '', symbolSubgenre: '',
-    };
+    cs = blankCs(cs.genre);
     renderContent();
+}
+
+function editCard(id) {
+    const card = S.cards.find(c => c.id === id);
+    if (!card) return;
+    const icon = normIcon(card.icon);
+    cs = blankCs(card.genre);
+    cs.editId = id;
+    cs.icon = icon;
+    cs.title = card.title;
+    cs.iconTab = icon.type === 'photo' ? 'photo' : 'symbol';
+    const sym = icon.type === 'symbol' && SYMBOL_SET.find(s => s.file === icon.value);
+    if (sym) { cs.symbolGenre = sym.genre; cs.symbolSubgenre = sym.subgenre; }
+    tab = 'create';
+    renderTabs();
+    renderContent();
+    window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+    const genre = cs.genre;
+    const card = S.cards.find(c => c.id === cs.editId);
+    cs = blankCs(genre);
+    tab = card && S.genres.includes(card.genre) ? 'g:' + card.genre : 'g:' + S.genres[0];
+    render();
 }
 
 // =============================
@@ -1127,6 +1188,7 @@ function renameGenre(index) {
     S.genres[index] = newName;
     S.cards = S.cards.map(c => c.genre === oldName ? { ...c, genre: newName } : c);
     if (tab === 'g:' + oldName) tab = 'g:' + newName;
+    if (cs.genre === oldName) cs.genre = newName;
     save();
     showSettings();
     render();
